@@ -12,14 +12,19 @@ type ServerConfig struct {
 	Port string `yaml:"port"`
 }
 
+type DatabaseConfig struct {
+	Path string `yaml:"path"`
+}
+
 type APIConfig struct {
 	URL      string        `yaml:"url"`
 	Interval time.Duration `yaml:"interval"`
 }
 
 type Config struct {
-	Server ServerConfig `yaml:"server"`
-	API    APIConfig    `yaml:"api"`
+	Server   ServerConfig   `yaml:"server"`
+	API      APIConfig      `yaml:"api"`
+	Database DatabaseConfig `yaml:"database"`
 }
 
 func LoadConfig(filepath string) (*Config, error) {

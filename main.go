@@ -9,6 +9,7 @@ import (
 
 	"github.com/sankevichsima-lab/Currency-Tracker/internal"
 	"github.com/sankevichsima-lab/Currency-Tracker/internal/client"
+	"github.com/sankevichsima-lab/Currency-Tracker/internal/storage"
 )
 
 type PingResponse struct {
@@ -33,6 +34,12 @@ func main() {
 		log.Fatalf("error: %v", err)
 	}
 
+	dbStorage, err := storage.NewStorage(cfg.Database.Path)
+	if err != nil {
+		log.Fatalf("failed to init storage: %v", err)
+	}
+	defer dbStorage.Close()
+
 	fmt.Println("Port:", cfg.Server.Port)
 
 	cgClient := client.NewCoinGeckoClient(cfg.API.URL, 10*time.Second)
@@ -41,6 +48,12 @@ func main() {
 		log.Printf("Failed to retrieve Bitcoin exchange rate: %v", err)
 	} else {
 		fmt.Printf("Current Bitcoin price: $%.2f USD\n", price)
+
+		if err = dbStorage.SavePrice("bitcoin", price); err != nil {
+			log.Printf("Failed to save price to DB: %v", err)
+		} else {
+			fmt.Println("Price successfully saved to SQLite database!")
+		}
 	}
 
 	http.HandleFunc("/ping", pingHandler)
