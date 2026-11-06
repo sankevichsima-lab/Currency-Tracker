@@ -15,10 +15,10 @@ type Worker struct {
 	time   time.Duration
 }
 
-func NewWorker(client client.CoinGeckoClient, db storage.Storage, time time.Duration) *Worker {
+func NewWorker(client *client.CoinGeckoClient, db *storage.Storage, time time.Duration) *Worker {
 	worker := Worker{
-		client: &client,
-		db:     &db,
+		client: client,
+		db:     db,
 		time:   time,
 	}
 	return &worker

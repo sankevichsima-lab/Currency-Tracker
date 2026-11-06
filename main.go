@@ -1,15 +1,21 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/sankevichsima-lab/Currency-Tracker/internal"
+	"github.com/sankevichsima-lab/Currency-Tracker/internal/api"
 	"github.com/sankevichsima-lab/Currency-Tracker/internal/client"
 	"github.com/sankevichsima-lab/Currency-Tracker/internal/storage"
+	"github.com/sankevichsima-lab/Currency-Tracker/internal/worker"
 )
 
 type PingResponse struct {
@@ -29,6 +35,9 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	fmt.Println("Трекер валют запускается...")
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	cfg, err := internal.LoadConfig("config.yaml")
 	if err != nil {
 		log.Fatalf("error: %v", err)
@@ -43,24 +52,22 @@ func main() {
 	fmt.Println("Port:", cfg.Server.Port)
 
 	cgClient := client.NewCoinGeckoClient(cfg.API.URL, 10*time.Second)
-	price, err := cgClient.GetBitcoinPrice()
-	if err != nil {
-		log.Printf("Failed to retrieve Bitcoin exchange rate: %v", err)
-	} else {
-		fmt.Printf("Current Bitcoin price: $%.2f USD\n", price)
 
-		if err = dbStorage.SavePrice("bitcoin", price); err != nil {
-			log.Printf("Failed to save price to DB: %v", err)
-		} else {
-			fmt.Println("Price successfully saved to SQLite database!")
-		}
-	}
+	worker := worker.NewWorker(cgClient, dbStorage, cfg.API.Interval)
+	go worker.Start(ctx)
 
 	http.HandleFunc("/ping", pingHandler)
 
+	apiHandler := api.NewHandler(dbStorage)
+	http.HandleFunc("/api/history", apiHandler.GetHistoryHandler)
+
 	fmt.Println("Server is active on port:", cfg.Server.Port)
-	err = http.ListenAndServe(":"+cfg.Server.Port, nil)
-	if err != nil {
-		log.Fatal("problem with listen server: ", err)
-	}
+	go func() {
+		err := http.ListenAndServe(":"+cfg.Server.Port, nil)
+		if err != nil {
+			log.Fatal("problem with listen server: ", err)
+		}
+	}()
+	<-ctx.Done()
+	fmt.Println("Приложение успешно остановлено.")
 }
