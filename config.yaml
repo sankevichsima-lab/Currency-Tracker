@@ -1,5 +1,6 @@
 server:
   port: "8080"
+  secret: "super-secret-jwt-key"
 
 api:
   url: "https://api.coingecko.com/api/v3"

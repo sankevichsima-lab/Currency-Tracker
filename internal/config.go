@@ -11,7 +11,8 @@ import (
 // ServerConfig stores HTTP server network settings.
 // ServerConfig хранит сетевые настройки HTTP-сервера.
 type ServerConfig struct {
-	Port string `yaml:"port"`
+	Port   string `yaml:"port"`
+	Secret string `yaml:"secret"`
 }
 
 // DatabaseConfig stores database connection settings.

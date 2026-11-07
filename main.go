@@ -44,8 +44,6 @@ func main() {
 
 	priceCache := cache.NewCache()
 
-	// Catch OS termination signals for graceful shutdown.
-	// Перехватываем системные сигналы для корректного завершения работы.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -64,30 +62,27 @@ func main() {
 
 	cgClient := client.NewCoinGeckoClient(cfg.API.URL, 10*time.Second)
 
-	// Run background worker in a separate goroutine.
-	// Запускаем фоновый воркер в отдельной горутине.
 	wrk := worker.NewWorker(cgClient, dbStorage, cfg.API.Interval, priceCache)
 	go wrk.Start(ctx)
 
-	http.HandleFunc("/ping", pingHandler)
+	// Инициализация API-хэндлеров с секретом из конфигурации
+	apiHandler := api.NewHandler(dbStorage, priceCache, cfg.Server.Secret)
 
-	apiHandler := api.NewHandler(dbStorage, priceCache)
-	http.HandleFunc("/api/history", apiHandler.GetHistoryHandler)
-	http.HandleFunc("/api/price", apiHandler.GetPriceHandler)
+	// Открытые маршруты (доступны без токена)
+	http.HandleFunc("/ping", pingHandler)
+	http.HandleFunc("/login", apiHandler.LoginHandler)
+
+	// Защищенные маршруты (требуют заголовок Authorization: Bearer <token>)
+	http.HandleFunc("/api/history", api.AuthMiddleware(apiHandler.GetHistoryHandler, cfg.Server.Secret))
+	http.HandleFunc("/api/price", api.AuthMiddleware(apiHandler.GetPriceHandler, cfg.Server.Secret))
 
 	fmt.Println("Server is active on port:", cfg.Server.Port)
-
-	// Start HTTP server asynchronously to avoid blocking the main thread.
-	// Запускаем HTTP-сервер асинхронно, чтобы не блокировать основной поток.
 	go func() {
 		err := http.ListenAndServe(":"+cfg.Server.Port, nil)
 		if err != nil {
 			log.Fatal("problem with listen server: ", err)
 		}
 	}()
-
-	// Block main goroutine until a shutdown signal is received.
-	// Блокируем выполнение main до получения сигнала остановки.
 	<-ctx.Done()
 	fmt.Println("Приложение успешно остановлено.")
 }
