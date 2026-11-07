@@ -19,11 +19,15 @@ import (
 	"github.com/sankevichsima-lab/Currency-Tracker/internal/worker"
 )
 
+// PingResponse represents the health check response body.
+// PingResponse представляет тело ответа для проверки работоспособности сервиса.
 type PingResponse struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
 }
 
+// pingHandler handles basic service health check requests.
+// pingHandler обрабатывает базовые запросы проверки доступности сервиса.
 func pingHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	data := PingResponse{
@@ -33,11 +37,15 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(data)
 }
 
+// main initializes dependencies, starts background tasks, and runs the HTTP server.
+// main инициализирует зависимости, запускает фоновые задачи и HTTP-сервер.
 func main() {
 	fmt.Println("Трекер валют запускается...")
 
 	priceCache := cache.NewCache()
 
+	// Catch OS termination signals for graceful shutdown.
+	// Перехватываем системные сигналы для корректного завершения работы.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -56,6 +64,8 @@ func main() {
 
 	cgClient := client.NewCoinGeckoClient(cfg.API.URL, 10*time.Second)
 
+	// Run background worker in a separate goroutine.
+	// Запускаем фоновый воркер в отдельной горутине.
 	wrk := worker.NewWorker(cgClient, dbStorage, cfg.API.Interval, priceCache)
 	go wrk.Start(ctx)
 
@@ -66,12 +76,18 @@ func main() {
 	http.HandleFunc("/api/price", apiHandler.GetPriceHandler)
 
 	fmt.Println("Server is active on port:", cfg.Server.Port)
+
+	// Start HTTP server asynchronously to avoid blocking the main thread.
+	// Запускаем HTTP-сервер асинхронно, чтобы не блокировать основной поток.
 	go func() {
 		err := http.ListenAndServe(":"+cfg.Server.Port, nil)
 		if err != nil {
 			log.Fatal("problem with listen server: ", err)
 		}
 	}()
+
+	// Block main goroutine until a shutdown signal is received.
+	// Блокируем выполнение main до получения сигнала остановки.
 	<-ctx.Done()
 	fmt.Println("Приложение успешно остановлено.")
 }

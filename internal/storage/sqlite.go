@@ -8,16 +8,22 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// Storage manages database operations for price records.
+// Storage управляет операциями с базой данных для записей цен.
 type Storage struct {
 	db *sql.DB
 }
 
+// PriceRecord represents a single price entry with timestamp.
+// PriceRecord представляет одну запись котировки с временной меткой.
 type PriceRecord struct {
 	Ticker    string  `json:"ticker"`
 	Price     float64 `json:"price"`
 	Timestamp string  `json:"timestamp"`
 }
 
+// NewStorage opens SQLite database and creates the rates table if it does not exist.
+// NewStorage открывает базу SQLite и создает таблицу rates, если она отсутствует.
 func NewStorage(dbPath string) (*Storage, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -40,6 +46,8 @@ func NewStorage(dbPath string) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
+// SavePrice inserts a new currency price record into the database.
+// SavePrice сохраняет новую запись курса валюты в базу данных.
 func (s *Storage) SavePrice(ticker string, price float64) error {
 	query := `INSERT INTO rates	(ticker, price, created_at) VALUES(?, ?, ?)`
 	_, err := s.db.Exec(query, ticker, price, time.Now())
@@ -49,10 +57,14 @@ func (s *Storage) SavePrice(ticker string, price float64) error {
 	return nil
 }
 
+// Close gracefully closes the database connection pool.
+// Close безопасно закрывает соединение с базой данных.
 func (s *Storage) Close() error {
 	return s.db.Close()
 }
 
+// GetPriceHistory retrieves the last 50 price records for a given ticker.
+// GetPriceHistory возвращает последние 50 записей котировок для указанного тикера.
 func (s *Storage) GetPriceHistory(ticker string) ([]PriceRecord, error) {
 	query := `SELECT ticker, price, created_at FROM rates WHERE ticker = ? ORDER BY created_at DESC LIMIT 50`
 	rows, err := s.db.Query(query, ticker)
@@ -63,6 +75,8 @@ func (s *Storage) GetPriceHistory(ticker string) ([]PriceRecord, error) {
 
 	var records []PriceRecord
 
+	// Scan query results into slice of records.
+	// Сканируем строки из результата запроса в срез записей.
 	for rows.Next() {
 		var record PriceRecord
 
