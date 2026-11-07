@@ -12,7 +12,8 @@ type CoinPrice struct {
 }
 
 type CoinGeckoResponse struct {
-	Bitcoin CoinPrice `json:"bitcoin"`
+	Bitcoin  CoinPrice `json:"bitcoin"`
+	Ethereum CoinPrice `json:"ethereum"`
 }
 
 type CoinGeckoClient struct {
@@ -30,8 +31,8 @@ func NewCoinGeckoClient(baseURL string, timeOut time.Duration) *CoinGeckoClient 
 	}
 }
 
-func (c *CoinGeckoClient) GetBitcoinPrice() (float64, error) {
-	url := fmt.Sprintf("%s/simple/price?ids=bitcoin&vs_currencies=usd", c.baseURL)
+func (c *CoinGeckoClient) GetPrice(coin string) (float64, error) {
+	url := fmt.Sprintf("%s/simple/price?ids=%s&vs_currencies=usd", c.baseURL, coin)
 	resp, err := c.httpClient.Get(url)
 	if err != nil {
 		return 0, fmt.Errorf("problem with getting data: %w", err)
@@ -42,10 +43,15 @@ func (c *CoinGeckoClient) GetBitcoinPrice() (float64, error) {
 		return 0, fmt.Errorf("status: %d", resp.StatusCode)
 	}
 
-	var result CoinGeckoResponse
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
+	var result map[string]CoinPrice
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return 0, fmt.Errorf("problem with decoding: %w", err)
 	}
-	return result.Bitcoin.USD, nil
+
+	priceData, ok := result[coin]
+	if !ok {
+		return 0, fmt.Errorf("coin %s not found in response", coin)
+	}
+
+	return priceData.USD, nil
 }

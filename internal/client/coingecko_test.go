@@ -16,7 +16,7 @@ func TestGetBitcoinPrice_Success(t *testing.T) {
 	defer server.Close()
 
 	client := NewCoinGeckoClient(server.URL, 2*time.Second)
-	price, err := client.GetBitcoinPrice()
+	price, err := client.GetPrice("bitcoin")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -32,7 +32,7 @@ func TestGetBitcoinPrice_ServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewCoinGeckoClient(server.URL, 2*time.Second)
-	_, err := client.GetBitcoinPrice()
+	_, err := client.GetPrice("bitcoin")
 	if err == nil {
 		t.Error("expected error from server, got nil")
 	}
