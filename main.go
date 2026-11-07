@@ -13,6 +13,7 @@ import (
 
 	"github.com/sankevichsima-lab/Currency-Tracker/internal"
 	"github.com/sankevichsima-lab/Currency-Tracker/internal/api"
+	"github.com/sankevichsima-lab/Currency-Tracker/internal/cache"
 	"github.com/sankevichsima-lab/Currency-Tracker/internal/client"
 	"github.com/sankevichsima-lab/Currency-Tracker/internal/storage"
 	"github.com/sankevichsima-lab/Currency-Tracker/internal/worker"
@@ -35,6 +36,8 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	fmt.Println("Трекер валют запускается...")
 
+	priceCache := cache.NewCache()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -53,13 +56,14 @@ func main() {
 
 	cgClient := client.NewCoinGeckoClient(cfg.API.URL, 10*time.Second)
 
-	worker := worker.NewWorker(cgClient, dbStorage, cfg.API.Interval)
-	go worker.Start(ctx)
+	wrk := worker.NewWorker(cgClient, dbStorage, cfg.API.Interval, priceCache)
+	go wrk.Start(ctx)
 
 	http.HandleFunc("/ping", pingHandler)
 
-	apiHandler := api.NewHandler(dbStorage)
+	apiHandler := api.NewHandler(dbStorage, priceCache)
 	http.HandleFunc("/api/history", apiHandler.GetHistoryHandler)
+	http.HandleFunc("/api/price", apiHandler.GetPriceHandler)
 
 	fmt.Println("Server is active on port:", cfg.Server.Port)
 	go func() {

@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/sankevichsima-lab/Currency-Tracker/internal/cache"
 	"github.com/sankevichsima-lab/Currency-Tracker/internal/client"
 	"github.com/sankevichsima-lab/Currency-Tracker/internal/storage"
 )
@@ -13,13 +14,15 @@ type Worker struct {
 	client *client.CoinGeckoClient
 	db     *storage.Storage
 	time   time.Duration
+	cache  *cache.Cache
 }
 
-func NewWorker(client *client.CoinGeckoClient, db *storage.Storage, time time.Duration) *Worker {
+func NewWorker(client *client.CoinGeckoClient, db *storage.Storage, interval time.Duration, cache *cache.Cache) *Worker {
 	worker := Worker{
 		client: client,
 		db:     db,
-		time:   time,
+		time:   interval,
+		cache:  cache,
 	}
 	return &worker
 }
@@ -36,6 +39,8 @@ func (w *Worker) fetchAndSave() {
 		log.Printf("Worker: failed to save to db: %v", err)
 		return
 	}
+
+	w.cache.Set("bitcoin", price)
 
 	log.Printf("Worker: successfully saved bitcoin price: $%.2f", price)
 }
