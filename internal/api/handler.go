@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/sankevichsima-lab/Currency-Tracker/internal/auth"
 	"github.com/sankevichsima-lab/Currency-Tracker/internal/cache"
@@ -64,6 +65,14 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to generate token", http.StatusInternalServerError)
 		return
 	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth_token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,                           // Защита от чтения через JSы
+		Expires:  time.Now().Add(24 * time.Hour), // Время жизни куки
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(LoginResponse{Token: token})
