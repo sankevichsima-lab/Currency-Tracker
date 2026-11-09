@@ -48,6 +48,16 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "username is required", http.StatusBadRequest)
 		return
 	}
+	hash, err := h.db.GetUserHash(req.Username)
+	if err != nil {
+		http.Error(w, "invalid username or password", http.StatusUnauthorized)
+		return
+	}
+
+	if err = auth.CheckPassword(req.Password, hash); err != nil {
+		http.Error(w, "invalid username or password", http.StatusUnauthorized)
+		return
+	}
 
 	token, err := auth.GenerateToken(req.Username, h.jwtSecret)
 	if err != nil {
@@ -123,4 +133,39 @@ func (h *Handler) GetHistoryHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(history)
+}
+
+// RegisterHandler registers a new user by hashing their password with bcrypt and storing credentials in SQLite.
+// RegisterHandler регистрирует нового пользователя, хеширует пароль через bcrypt и сохраняет запись в SQLite.
+func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.Password == "" || req.Username == "" {
+		http.Error(w, "400 Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	hashPass, err := auth.HashPassword(req.Password)
+	if err != nil {
+		http.Error(w, "problem with hashing password", http.StatusInternalServerError)
+		return
+	}
+	if err = h.db.CreateUser(req.Username, hashPass); err != nil {
+		http.Error(w, "conflict with DB", http.StatusConflict)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "user created",
+	})
 }

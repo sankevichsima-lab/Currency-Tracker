@@ -71,6 +71,7 @@ func main() {
 	// Открытые маршруты (доступны без токена)
 	http.HandleFunc("/ping", pingHandler)
 	http.HandleFunc("/login", apiHandler.LoginHandler)
+	http.HandleFunc("/register", apiHandler.RegisterHandler)
 
 	// Защищенные маршруты (требуют заголовок Authorization: Bearer <token>)
 	http.HandleFunc("/api/history", api.AuthMiddleware(apiHandler.GetHistoryHandler, cfg.Server.Secret))

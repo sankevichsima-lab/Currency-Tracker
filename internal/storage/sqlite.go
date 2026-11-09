@@ -39,10 +39,22 @@ func NewStorage(dbPath string) (*Storage, error) {
 	price REAL NOT NULL,
 	created_at DATETIME NOT NULL
 	);`
+
+	users := `CREATE TABLE IF NOT EXISTS users(
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	username TEXT UNIQUE NOT NULL,
+	password_hash TEXT NOT NULL
+	);`
+
 	_, err = db.Exec(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create rates table: %w", err)
 	}
+
+	if _, err = db.Exec(users); err != nil {
+		return nil, fmt.Errorf("failed to create users table: %w", err)
+	}
+
 	return &Storage{db: db}, nil
 }
 
@@ -92,4 +104,21 @@ func (s *Storage) GetPriceHistory(ticker string) ([]PriceRecord, error) {
 	}
 
 	return records, nil
+}
+
+func (s *Storage) CreateUser(username, passwordHash string) error {
+	query := `INSERT INTO users(username, password_hash) VALUES(?, ?)`
+	if _, err := s.db.Exec(query, username, passwordHash); err != nil {
+		return fmt.Errorf("failed to create user: %w", err)
+	}
+	return nil
+}
+
+func (s *Storage) GetUserHash(username string) (string, error) {
+	query := `SELECT password_hash FROM users WHERE username = ?`
+	var hash string
+	if err := s.db.QueryRow(query, username).Scan(&hash); err != nil {
+		return "", fmt.Errorf("username not found: %w", err)
+	}
+	return hash, nil
 }
